@@ -26,11 +26,7 @@
             color: #e8d5b7;
         }
 
-        .subtitle {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 20px;
-        }
+        .subtitle { font-size: 0.8rem; color: #888; margin-bottom: 20px; }
 
         .main {
             display: flex;
@@ -40,17 +36,48 @@
             justify-content: center;
         }
 
+        .canvas-wrap { position: relative; }
+
         canvas {
             border: 1px solid #333;
             border-radius: 4px;
             background: #0d0d1a;
+            display: block;
+        }
+
+        #vuMeter {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 80px;
+            height: 8px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #vuFill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4a7, #e84);
+            transition: width 0.05s;
+        }
+
+        #audioLabel {
+            position: absolute;
+            bottom: 22px;
+            left: 10px;
+            font-size: 0.6rem;
+            color: #666;
         }
 
         .controls {
             display: flex;
             flex-direction: column;
-            gap: 16px;
-            min-width: 260px;
+            gap: 14px;
+            min-width: 280px;
+            max-width: 300px;
             background: #16213e;
             padding: 20px;
             border-radius: 8px;
@@ -98,17 +125,24 @@
         button:hover { background: #2a2a50; border-color: #e8d5b7; color: #e8d5b7; }
         button.active { background: #2a2a50; border-color: #e8d5b7; color: #e8d5b7; }
 
-        .btn-row {
-            display: flex;
-            gap: 6px;
-        }
-
+        .btn-row { display: flex; gap: 6px; }
         .btn-row button { flex: 1; }
 
         .btn-primary {
             background: #2a1a40 !important;
             border-color: #c9a96e !important;
             color: #e8d5b7 !important;
+        }
+
+        .btn-mic {
+            background: #1a3020 !important;
+            border-color: #4a7 !important;
+            color: #8fc !important;
+        }
+        .btn-mic.active {
+            background: #2a5030 !important;
+            border-color: #6c8 !important;
+            color: #afd !important;
         }
 
         .section-label {
@@ -125,58 +159,84 @@
             color: #666;
             text-align: center;
             margin-top: 16px;
-            max-width: 600px;
+            max-width: 640px;
             line-height: 1.5;
+        }
+
+        select {
+            background: #1a1a40;
+            color: #ccc;
+            border: 1px solid #333;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            width: 100%;
         }
     </style>
 </head>
 <body>
     <h1>CHLADNI PLATE</h1>
-    <p class="subtitle">Vibration pattern simulator</p>
+    <p class="subtitle">Realistic vibration &amp; particle physics</p>
 
     <div class="main">
-        <canvas id="plate" width="500" height="500"></canvas>
+        <div class="canvas-wrap">
+            <canvas id="plate" width="500" height="500"></canvas>
+            <div id="audioLabel">INPUT LEVEL</div>
+            <div id="vuMeter"><div id="vuFill"></div></div>
+        </div>
 
         <div class="controls">
-            <div class="section-label">Frequency Parameters</div>
+            <div class="section-label">Audio Input</div>
+            <div class="btn-row">
+                <button id="btnTone" class="active" onclick="setAudioSource('tone')">Tone Generator</button>
+                <button id="btnMic" class="btn-mic" onclick="setAudioSource('mic')">Microphone</button>
+            </div>
 
+            <div class="control-group" id="toneFreqGroup">
+                <label>Tone Frequency <span class="value" id="toneFreqVal">440 Hz</span></label>
+                <input type="range" id="toneFreqSlider" min="20" max="2000" step="1" value="440">
+            </div>
+
+            <div class="section-label">Mode Shape (n, m)</div>
             <div class="control-group">
                 <label>n <span class="value" id="nVal">2</span></label>
-                <input type="range" id="nSlider" min="1" max="12" step="0.1" value="2">
+                <input type="range" id="nSlider" min="1" max="12" step="1" value="2">
             </div>
-
             <div class="control-group">
                 <label>m <span class="value" id="mVal">3</span></label>
-                <input type="range" id="mSlider" min="1" max="12" step="0.1" value="3">
+                <input type="range" id="mSlider" min="1" max="12" step="1" value="3">
             </div>
 
-            <div class="section-label">Plate Settings</div>
-
+            <div class="section-label">Physics</div>
             <div class="control-group">
-                <label>Amplitude <span class="value" id="ampVal">1.0</span></label>
-                <input type="range" id="ampSlider" min="0.1" max="3.0" step="0.1" value="1.0">
+                <label>Drive Amplitude <span class="value" id="ampVal">0.50</span></label>
+                <input type="range" id="ampSlider" min="0.05" max="2.0" step="0.01" value="0.50">
             </div>
-
             <div class="control-group">
-                <label>Particle Count <span class="value" id="countVal">8000</span></label>
-                <input type="range" id="countSlider" min="1000" max="25000" step="500" value="8000">
+                <label>Driving Frequency <span class="value" id="driveFreqVal">80 Hz</span></label>
+                <input type="range" id="driveFreqSlider" min="10" max="500" step="1" value="80">
             </div>
-
             <div class="control-group">
-                <label>Particle Speed <span class="value" id="speedVal">1.0</span></label>
-                <input type="range" id="speedSlider" min="0.2" max="3.0" step="0.1" value="1.0">
+                <label>Friction <span class="value" id="frictionVal">0.30</span></label>
+                <input type="range" id="frictionSlider" min="0.0" max="1.0" step="0.01" value="0.30">
+            </div>
+            <div class="control-group">
+                <label>Bounce Loss <span class="value" id="bounceVal">0.30</span></label>
+                <input type="range" id="bounceSlider" min="0.0" max="0.9" step="0.01" value="0.30">
+            </div>
+            <div class="control-group">
+                <label>Particles <span class="value" id="countVal">6000</span></label>
+                <input type="range" id="countSlider" min="500" max="20000" step="250" value="6000">
             </div>
 
             <div class="section-label">Presets</div>
             <div class="preset-grid">
-                <button onclick="setPreset(2, 3)">n=2, m=3</button>
-                <button onclick="setPreset(1, 2)">n=1, m=2</button>
-                <button onclick="setPreset(3, 5)">n=3, m=5</button>
-                <button onclick="setPreset(4, 7)">n=4, m=7</button>
-                <button onclick="setPreset(5, 5)">n=5, m=5</button>
-                <button onclick="setPreset(6, 9)">n=6, m=9</button>
-                <button onclick="setPreset(7, 3)">n=7, m=3</button>
-                <button onclick="setPreset(10, 11)">n=10, m=11</button>
+                <button onclick="setPreset(1,2)">n=1, m=2</button>
+                <button onclick="setPreset(2,3)">n=2, m=3</button>
+                <button onclick="setPreset(3,5)">n=3, m=5</button>
+                <button onclick="setPreset(4,7)">n=4, m=7</button>
+                <button onclick="setPreset(5,5)">n=5, m=5</button>
+                <button onclick="setPreset(6,9)">n=6, m=9</button>
             </div>
 
             <div class="section-label">Display</div>
@@ -185,7 +245,6 @@
                 <button id="modeField" onclick="setMode('field')">Field</button>
                 <button id="modeBoth" onclick="setMode('both')">Both</button>
             </div>
-
             <div class="btn-row">
                 <button class="btn-primary" onclick="resetParticles()">Scatter</button>
                 <button onclick="togglePause()" id="pauseBtn">Pause</button>
@@ -194,137 +253,372 @@
     </div>
 
     <p class="info">
-        Chladni figures emerge when particles on a vibrating plate migrate to the nodal lines — regions of zero displacement.
-        The pattern is governed by cos(n&pi;x)&middot;cos(m&pi;y) &plusmn; cos(m&pi;x)&middot;cos(n&pi;y) = 0.
+        Realistic physics: the plate surface oscillates sinusoidally. When the plate's vertical acceleration
+        exceeds gravity, particles launch into the air. While airborne they follow ballistic arcs.
+        On landing, friction slides them toward the nodal lines. Use the tone generator or your microphone
+        to drive the plate vibration.
     </p>
 
     <script>
+    (function() {
+        'use strict';
+
         const canvas = document.getElementById('plate');
         const ctx = canvas.getContext('2d');
         const W = canvas.width, H = canvas.height;
 
+        // ===== Physical constants (normalized units) =====
+        // Plate is 1x1, gravity pulls particles down onto the plate surface.
+        // Plate displacement: w(x,y,t) = A * phi(x,y) * sin(omega*t)
+        // phi(x,y) = cos(n*pi*x)*cos(m*pi*y) - cos(m*pi*x)*cos(n*pi*y)
+        // Plate acceleration: a(x,y,t) = -A * omega^2 * phi(x,y) * sin(omega*t)
+        // Particle lifts off when plate acceleration > g (downward)
+
+        const G = 9.81;           // gravity (m/s^2)
+        const PLATE_SIZE = 0.3;   // plate is 0.3m x 0.3m
+
         // State
-        let n = 2, m = 3, amplitude = 1.0, speed = 1.0;
-        let particleCount = 8000;
-        let mode = 'particles'; // 'particles' | 'field' | 'both'
+        let nMode = 2, mMode = 3;
+        let driveAmplitude = 0.5;    // mm of peak plate displacement
+        let driveFreqHz = 80;        // plate oscillation frequency
+        let friction = 0.30;         // kinetic friction coefficient
+        let bounceLoss = 0.30;       // coefficient of restitution = 1 - bounceLoss
+        let particleCount = 6000;
+        let displayMode = 'particles';
         let paused = false;
+
+        // Audio
+        let audioSource = 'tone';    // 'tone' | 'mic'
+        let audioCtx = null;
+        let analyser = null;
+        let oscillator = null;
+        let gainNode = null;
+        let micStream = null;
+        let micSource = null;
+        let toneFreq = 440;
+        let audioLevel = 0;          // 0..1 RMS level from audio
+
+        // Time tracking
+        let simTime = 0;
+        let lastFrameTime = 0;
+
+        // Particles: each has (x, y) on plate [0,1], (vx, vy) horizontal velocity,
+        // z = height above plate, vz = vertical velocity
         let particles = [];
 
-        // Chladni equation: cos(n*pi*x)*cos(m*pi*y) - cos(m*pi*x)*cos(n*pi*y)
-        function chladni(x, y) {
-            return Math.cos(n * Math.PI * x) * Math.cos(m * Math.PI * y)
-                 - Math.cos(m * Math.PI * x) * Math.cos(n * Math.PI * y);
-        }
+        // Field cache for rendering
+        let fieldImageData = null;
+        let fieldCacheN = -1, fieldCacheM = -1;
 
-        // Gradient of the Chladni function (points away from nodal lines)
-        function chladniGradient(x, y) {
+        // ===== Chladni mode shape =====
+        function phi(x, y) {
             const PI = Math.PI;
-            const dx = -n * PI * Math.sin(n * PI * x) * Math.cos(m * PI * y)
-                      + m * PI * Math.sin(m * PI * x) * Math.cos(n * PI * y);
-            const dy = -m * PI * Math.cos(n * PI * x) * Math.sin(m * PI * y)
-                      + n * PI * Math.cos(m * PI * x) * Math.sin(n * PI * y);
-            return { dx, dy };
+            return Math.cos(nMode * PI * x) * Math.cos(mMode * PI * y)
+                 - Math.cos(mMode * PI * x) * Math.cos(nMode * PI * y);
         }
 
-        // Initialize particles randomly across the plate
+        // Gradient of phi (for friction force direction)
+        function phiGradient(x, y) {
+            const PI = Math.PI;
+            const dpdx = -nMode * PI * Math.sin(nMode * PI * x) * Math.cos(mMode * PI * y)
+                        + mMode * PI * Math.sin(mMode * PI * x) * Math.cos(nMode * PI * y);
+            const dpdy = -mMode * PI * Math.cos(nMode * PI * x) * Math.sin(mMode * PI * y)
+                        + nMode * PI * Math.cos(mMode * PI * x) * Math.sin(nMode * PI * y);
+            return { x: dpdx, y: dpdy };
+        }
+
+        // ===== Particle initialization =====
         function initParticles() {
             particles = [];
             for (let i = 0; i < particleCount; i++) {
                 particles.push({
                     x: Math.random(),
                     y: Math.random(),
-                    vx: 0,
-                    vy: 0
+                    vx: 0, vy: 0,
+                    z: 0,    // height above plate surface
+                    vz: 0,   // vertical velocity
+                    onPlate: true
                 });
             }
         }
 
-        function resetParticles() {
-            initParticles();
+        function resetParticles() { initParticles(); }
+
+        // ===== Audio system =====
+        function initAudioContext() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            analyser.smoothingTimeConstant = 0.8;
         }
 
-        // Physics step: particles move toward nodal lines
-        function updateParticles() {
+        function startTone() {
+            initAudioContext();
+            stopMic();
+            if (oscillator) { oscillator.stop(); oscillator = null; }
+
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.value = toneFreq;
+            gainNode.gain.value = 0.5;
+
+            oscillator.connect(gainNode);
+            gainNode.connect(analyser);
+            // Connect to destination at very low volume so user can hear
+            const quietGain = audioCtx.createGain();
+            quietGain.gain.value = 0.05;
+            gainNode.connect(quietGain);
+            quietGain.connect(audioCtx.destination);
+
+            oscillator.start();
+        }
+
+        function stopTone() {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator = null;
+            }
+        }
+
+        async function startMic() {
+            initAudioContext();
+            stopTone();
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micSource = audioCtx.createMediaStreamSource(micStream);
+                micSource.connect(analyser);
+            } catch (e) {
+                console.warn('Microphone access denied:', e);
+                setAudioSource('tone');
+            }
+        }
+
+        function stopMic() {
+            if (micSource) { micSource.disconnect(); micSource = null; }
+            if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+        }
+
+        function getAudioLevel() {
+            if (!analyser) return 0;
+            const data = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteTimeDomainData(data);
+            let sum = 0;
+            for (let i = 0; i < data.length; i++) {
+                const v = (data[i] - 128) / 128;
+                sum += v * v;
+            }
+            return Math.sqrt(sum / data.length);
+        }
+
+        window.setAudioSource = function(source) {
+            audioSource = source;
+            document.getElementById('btnTone').classList.toggle('active', source === 'tone');
+            document.getElementById('btnMic').classList.toggle('active', source === 'mic');
+            document.getElementById('toneFreqGroup').style.display = source === 'tone' ? '' : 'none';
+
+            if (source === 'tone') {
+                startTone();
+            } else {
+                startMic();
+            }
+        };
+
+        // ===== Physics update =====
+        function updatePhysics(dtReal) {
             if (paused) return;
 
-            const dt = 0.0004 * speed;
-            const damping = 0.95;
-            const forceScale = amplitude * 0.5;
+            // Get audio level for amplitude modulation
+            audioLevel = getAudioLevel();
+            document.getElementById('vuFill').style.width = (audioLevel * 100 * 3) + '%';
 
-            for (const p of particles) {
-                const val = chladni(p.x, p.y);
-                const grad = chladniGradient(p.x, p.y);
+            // Effective amplitude: base amplitude modulated by audio input
+            const A_mm = driveAmplitude * (0.1 + audioLevel * 3.0); // in mm
+            const A = A_mm * 0.001; // convert to meters
+            const omega = 2 * Math.PI * driveFreqHz;
 
-                // Force proportional to the function value, pointing toward zero
-                // F = -f(x,y) * grad(f) — drives particles toward nodal lines
-                const mag = Math.sqrt(grad.dx * grad.dx + grad.dy * grad.dy) + 0.001;
-                const fx = -val * grad.dx / mag * forceScale;
-                const fy = -val * grad.dy / mag * forceScale;
+            // We simulate in real seconds but clamp dt to avoid instability
+            const dt = Math.min(dtReal, 1 / 30);
 
-                p.vx = (p.vx + fx * dt) * damping;
-                p.vy = (p.vy + fy * dt) * damping;
+            // Substep for stability
+            const nSub = 8;
+            const subDt = dt / nSub;
 
-                p.x += p.vx * dt;
-                p.y += p.vy * dt;
+            for (let sub = 0; sub < nSub; sub++) {
+                simTime += subDt;
+                const sinOmegaT = Math.sin(omega * simTime);
+                // Plate vertical acceleration at point (x,y):
+                // a_plate = -A * omega^2 * phi(x,y) * sin(omega*t)
 
-                // Reflect at boundaries
-                if (p.x < 0) { p.x = -p.x; p.vx *= -0.5; }
-                if (p.x > 1) { p.x = 2 - p.x; p.vx *= -0.5; }
-                if (p.y < 0) { p.y = -p.y; p.vy *= -0.5; }
-                if (p.y > 1) { p.y = 2 - p.y; p.vy *= -0.5; }
-            }
-        }
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
 
-        // Render the displacement field as a heatmap
-        function drawField() {
-            const imageData = ctx.createImageData(W, H);
-            const data = imageData.data;
+                    // Plate displacement and acceleration at this particle's position
+                    const phiVal = phi(p.x, p.y);
+                    const plateZ = A * phiVal * sinOmegaT;
+                    const plateAccZ = -A * omega * omega * phiVal * sinOmegaT;
 
-            for (let py = 0; py < H; py++) {
-                for (let px = 0; px < W; px++) {
-                    const x = px / W;
-                    const y = py / H;
-                    const val = chladni(x, y);
+                    if (p.onPlate) {
+                        // Particle is on the plate surface
+                        // Check if plate acceleration flings particle upward
+                        // Particle lifts off when plate accelerates downward faster than gravity
+                        // i.e., plateAccZ < -G (plate pulling away from particle)
+                        if (plateAccZ < -G) {
+                            // Launch! Particle leaves surface with plate's current velocity
+                            const plateVz = A * omega * phiVal * Math.cos(omega * simTime);
+                            p.z = plateZ;
+                            p.vz = plateVz;
+                            p.onPlate = false;
+                        } else {
+                            // Particle stays on plate - apply friction
+                            // The plate surface tilts, so there's a lateral component of
+                            // the effective force: proportional to the gradient of displacement
+                            // F_lateral = -mu * m * |a_net| * grad(phi) / |grad(phi)|
+                            // where a_net = plateAccZ + G (net downward force on particle)
+                            const grad = phiGradient(p.x, p.y);
+                            const gradMag = Math.sqrt(grad.x * grad.x + grad.y * grad.y) + 1e-6;
 
-                    const idx = (py * W + px) * 4;
-                    // Map value to color: blue (negative) - black (zero) - warm (positive)
-                    const absVal = Math.min(Math.abs(val) * amplitude, 1);
+                            // Normal force on particle = m * (G + plateAccZ) when plate acc is upward
+                            const normalForce = Math.max(G + plateAccZ, 0);
 
-                    if (val > 0) {
-                        data[idx]     = Math.floor(absVal * 180);  // R
-                        data[idx + 1] = Math.floor(absVal * 100);  // G
-                        data[idx + 2] = Math.floor(absVal * 40);   // B
+                            // The plate slope creates a lateral force component
+                            // slope = A * sinOmegaT * grad(phi) -> lateral gravity component
+                            const slopeX = A * sinOmegaT * grad.x / PLATE_SIZE;
+                            const slopeY = A * sinOmegaT * grad.y / PLATE_SIZE;
+
+                            // Friction force opposes motion AND slope drives particle
+                            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy) + 1e-8;
+
+                            // Sliding friction (opposes velocity)
+                            const frictionForce = friction * normalForce;
+                            const fx_fric = -frictionForce * p.vx / speed;
+                            const fy_fric = -frictionForce * p.vy / speed;
+
+                            // Gravity component along slope
+                            const fx_slope = -G * slopeX;
+                            const fy_slope = -G * slopeY;
+
+                            // Total lateral acceleration (F/m, mass=1)
+                            p.vx += (fx_fric + fx_slope) * subDt;
+                            p.vy += (fy_fric + fy_slope) * subDt;
+
+                            // Apply velocity damping for numerical stability
+                            // and to model rolling resistance
+                            const dampFactor = Math.exp(-2.0 * friction * subDt);
+                            p.vx *= dampFactor;
+                            p.vy *= dampFactor;
+
+                            // Update position (convert velocity in m/s to plate coordinates)
+                            p.x += p.vx * subDt / PLATE_SIZE;
+                            p.y += p.vy * subDt / PLATE_SIZE;
+
+                            // Keep z on plate surface
+                            p.z = plateZ;
+                        }
                     } else {
-                        data[idx]     = Math.floor(absVal * 30);
-                        data[idx + 1] = Math.floor(absVal * 80);
-                        data[idx + 2] = Math.floor(absVal * 160);
+                        // Particle is airborne - pure ballistic trajectory
+                        p.vz -= G * subDt;
+                        p.z += p.vz * subDt;
+
+                        // Horizontal drift (from launch velocity, small)
+                        p.x += p.vx * subDt / PLATE_SIZE;
+                        p.y += p.vy * subDt / PLATE_SIZE;
+
+                        // Check if particle has landed back on plate
+                        if (p.z <= plateZ) {
+                            p.z = plateZ;
+                            p.onPlate = true;
+
+                            // Bounce: reflect vertical velocity with energy loss
+                            const impactVz = p.vz - (A * omega * phiVal * Math.cos(omega * simTime));
+                            const restitution = 1.0 - bounceLoss;
+                            if (Math.abs(impactVz) > 0.01) {
+                                // Bounce back up
+                                p.vz = -impactVz * restitution + (A * omega * phiVal * Math.cos(omega * simTime));
+                                p.onPlate = false;
+                            } else {
+                                // Too slow, stick to plate
+                                p.vz = 0;
+                                p.onPlate = true;
+                            }
+
+                            // Horizontal velocity loses energy on impact
+                            p.vx *= (1.0 - bounceLoss * 0.5);
+                            p.vy *= (1.0 - bounceLoss * 0.5);
+                        }
                     }
-                    data[idx + 3] = 255;
+
+                    // Boundary: reflect off plate edges
+                    if (p.x < 0) { p.x = -p.x; p.vx = Math.abs(p.vx) * 0.3; }
+                    if (p.x > 1) { p.x = 2 - p.x; p.vx = -Math.abs(p.vx) * 0.3; }
+                    if (p.y < 0) { p.y = -p.y; p.vy = Math.abs(p.vy) * 0.3; }
+                    if (p.y > 1) { p.y = 2 - p.y; p.vy = -Math.abs(p.vy) * 0.3; }
                 }
             }
-
-            ctx.putImageData(imageData, 0, 0);
         }
 
-        // Render particles as bright dots
+        // ===== Rendering =====
+        function drawField() {
+            // Cache the field image when mode shape hasn't changed
+            if (fieldCacheN !== nMode || fieldCacheM !== mMode) {
+                fieldImageData = ctx.createImageData(W, H);
+                const data = fieldImageData.data;
+                for (let py = 0; py < H; py++) {
+                    for (let px = 0; px < W; px++) {
+                        const x = px / W;
+                        const y = py / H;
+                        const val = phi(x, y);
+                        const idx = (py * W + px) * 4;
+                        const absVal = Math.min(Math.abs(val), 1);
+                        if (val > 0) {
+                            data[idx] = Math.floor(absVal * 140);
+                            data[idx+1] = Math.floor(absVal * 80);
+                            data[idx+2] = Math.floor(absVal * 30);
+                        } else {
+                            data[idx] = Math.floor(absVal * 20);
+                            data[idx+1] = Math.floor(absVal * 60);
+                            data[idx+2] = Math.floor(absVal * 130);
+                        }
+                        data[idx+3] = 255;
+                    }
+                }
+                fieldCacheN = nMode;
+                fieldCacheM = mMode;
+            }
+            ctx.putImageData(fieldImageData, 0, 0);
+        }
+
         function drawParticles(clearBg) {
             if (clearBg) {
                 ctx.fillStyle = '#0d0d1a';
                 ctx.fillRect(0, 0, W, H);
             }
 
-            ctx.fillStyle = 'rgba(232, 213, 183, 0.7)';
-            for (const p of particles) {
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
                 const px = p.x * W;
                 const py = p.y * H;
-                ctx.fillRect(px, py, 1.4, 1.4);
+
+                if (p.onPlate) {
+                    // Sand color, slightly varying
+                    ctx.fillStyle = 'rgba(232, 213, 183, 0.8)';
+                    ctx.fillRect(px - 0.7, py - 0.7, 1.4, 1.4);
+                } else {
+                    // Airborne: brighter, with slight size based on height
+                    const h = Math.min(Math.abs(p.z) * 500, 1);
+                    const size = 1.2 + h * 1.5;
+                    const alpha = 0.4 + h * 0.5;
+                    ctx.fillStyle = `rgba(255, 240, 200, ${alpha})`;
+                    ctx.fillRect(px - size/2, py - size/2, size, size);
+                }
             }
         }
 
         function draw() {
-            if (mode === 'field') {
+            if (displayMode === 'field') {
                 drawField();
-            } else if (mode === 'particles') {
+            } else if (displayMode === 'particles') {
                 drawParticles(true);
             } else {
                 drawField();
@@ -332,30 +626,44 @@
             }
         }
 
-        // Main loop
-        function loop() {
-            for (let i = 0; i < 3; i++) updateParticles(); // multiple substeps
+        // ===== Main loop =====
+        function loop(timestamp) {
+            if (!lastFrameTime) lastFrameTime = timestamp;
+            const dtMs = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+            const dtSec = dtMs / 1000;
+
+            updatePhysics(dtSec);
             draw();
             requestAnimationFrame(loop);
         }
 
-        // --- UI Bindings ---
+        // ===== UI =====
         const nSlider = document.getElementById('nSlider');
         const mSlider = document.getElementById('mSlider');
         const ampSlider = document.getElementById('ampSlider');
+        const driveFreqSlider = document.getElementById('driveFreqSlider');
+        const frictionSlider = document.getElementById('frictionSlider');
+        const bounceSlider = document.getElementById('bounceSlider');
         const countSlider = document.getElementById('countSlider');
-        const speedSlider = document.getElementById('speedSlider');
+        const toneFreqSlider = document.getElementById('toneFreqSlider');
 
-        function updateFromSliders() {
-            n = parseFloat(nSlider.value);
-            m = parseFloat(mSlider.value);
-            amplitude = parseFloat(ampSlider.value);
-            speed = parseFloat(speedSlider.value);
+        function updateUI() {
+            nMode = parseInt(nSlider.value);
+            mMode = parseInt(mSlider.value);
+            driveAmplitude = parseFloat(ampSlider.value);
+            driveFreqHz = parseInt(driveFreqSlider.value);
+            friction = parseFloat(frictionSlider.value);
+            bounceLoss = parseFloat(bounceSlider.value);
+            toneFreq = parseInt(toneFreqSlider.value);
 
-            document.getElementById('nVal').textContent = n.toFixed(1);
-            document.getElementById('mVal').textContent = m.toFixed(1);
-            document.getElementById('ampVal').textContent = amplitude.toFixed(1);
-            document.getElementById('speedVal').textContent = speed.toFixed(1);
+            document.getElementById('nVal').textContent = nMode;
+            document.getElementById('mVal').textContent = mMode;
+            document.getElementById('ampVal').textContent = driveAmplitude.toFixed(2);
+            document.getElementById('driveFreqVal').textContent = driveFreqHz + ' Hz';
+            document.getElementById('frictionVal').textContent = friction.toFixed(2);
+            document.getElementById('bounceVal').textContent = bounceLoss.toFixed(2);
+            document.getElementById('toneFreqVal').textContent = toneFreq + ' Hz';
 
             const newCount = parseInt(countSlider.value);
             document.getElementById('countVal').textContent = newCount;
@@ -363,35 +671,50 @@
                 particleCount = newCount;
                 initParticles();
             }
+
+            if (oscillator) {
+                oscillator.frequency.value = toneFreq;
+            }
         }
 
-        nSlider.addEventListener('input', updateFromSliders);
-        mSlider.addEventListener('input', updateFromSliders);
-        ampSlider.addEventListener('input', updateFromSliders);
-        countSlider.addEventListener('input', updateFromSliders);
-        speedSlider.addEventListener('input', updateFromSliders);
+        [nSlider, mSlider, ampSlider, driveFreqSlider, frictionSlider,
+         bounceSlider, countSlider, toneFreqSlider].forEach(s => {
+            s.addEventListener('input', updateUI);
+        });
 
-        function setPreset(newN, newM) {
-            nSlider.value = newN;
-            mSlider.value = newM;
-            updateFromSliders();
-        }
+        window.setPreset = function(n, m) {
+            nSlider.value = n;
+            mSlider.value = m;
+            updateUI();
+        };
 
-        function setMode(newMode) {
-            mode = newMode;
-            document.getElementById('modeParticles').classList.toggle('active', mode === 'particles');
-            document.getElementById('modeField').classList.toggle('active', mode === 'field');
-            document.getElementById('modeBoth').classList.toggle('active', mode === 'both');
-        }
+        window.setMode = function(m) {
+            displayMode = m;
+            document.getElementById('modeParticles').classList.toggle('active', m === 'particles');
+            document.getElementById('modeField').classList.toggle('active', m === 'field');
+            document.getElementById('modeBoth').classList.toggle('active', m === 'both');
+        };
 
-        function togglePause() {
+        window.togglePause = function() {
             paused = !paused;
             document.getElementById('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
-        }
+        };
 
-        // Start
+        window.resetParticles = resetParticles;
+
+        // Start audio on first user interaction (browser autoplay policy)
+        let audioStarted = false;
+        document.addEventListener('click', function() {
+            if (!audioStarted) {
+                audioStarted = true;
+                if (audioSource === 'tone') startTone();
+            }
+        }, { once: false });
+
+        // Init
         initParticles();
-        loop();
+        requestAnimationFrame(loop);
+    })();
     </script>
 </body>
 </html>
