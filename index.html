@@ -478,92 +478,65 @@
                     const plateAccZ = -A * omega * omega * phiVal * sinOmegaT;
 
                     if (p.onPlate) {
-                        // Particle is on the plate surface
-                        // Check if plate acceleration flings particle upward
-                        // Particle lifts off when plate accelerates downward faster than gravity
-                        // i.e., plateAccZ < -G (plate pulling away from particle)
+                        // Particle is resting on the plate surface.
+                        // It lifts off when the plate accelerates downward faster than
+                        // gravity, i.e. the plate "drops away" from the particle.
                         if (plateAccZ < -G) {
-                            // Launch! Particle leaves surface with plate's current velocity
+                            // Launch: particle leaves surface with plate's current velocity
                             const plateVz = A * omega * phiVal * Math.cos(omega * simTime);
                             p.z = plateZ;
                             p.vz = plateVz;
                             p.onPlate = false;
                         } else {
-                            // Particle stays on plate - apply friction
-                            // The plate surface tilts, so there's a lateral component of
-                            // the effective force: proportional to the gradient of displacement
-                            // F_lateral = -mu * m * |a_net| * grad(phi) / |grad(phi)|
-                            // where a_net = plateAccZ + G (net downward force on particle)
-                            const grad = phiGradient(p.x, p.y);
-                            const gradMag = Math.sqrt(grad.x * grad.x + grad.y * grad.y) + 1e-6;
-
-                            // Normal force on particle = m * (G + plateAccZ) when plate acc is upward
-                            const normalForce = Math.max(G + plateAccZ, 0);
-
-                            // The plate slope creates a lateral force component
-                            // slope = A * sinOmegaT * grad(phi) -> lateral gravity component
-                            const slopeX = A * sinOmegaT * grad.x / PLATE_SIZE;
-                            const slopeY = A * sinOmegaT * grad.y / PLATE_SIZE;
-
-                            // Friction force opposes motion AND slope drives particle
-                            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy) + 1e-8;
-
-                            // Sliding friction (opposes velocity)
-                            const frictionForce = friction * normalForce;
-                            const fx_fric = -frictionForce * p.vx / speed;
-                            const fy_fric = -frictionForce * p.vy / speed;
-
-                            // Gravity component along slope
-                            const fx_slope = -G * slopeX;
-                            const fy_slope = -G * slopeY;
-
-                            // Total lateral acceleration (F/m, mass=1)
-                            p.vx += (fx_fric + fx_slope) * subDt;
-                            p.vy += (fy_fric + fy_slope) * subDt;
-
-                            // Apply velocity damping for numerical stability
-                            // and to model rolling resistance
-                            const dampFactor = Math.exp(-2.0 * friction * subDt);
+                            // Particle stays on plate.
+                            // Friction rapidly damps any horizontal velocity.
+                            const dampFactor = Math.exp(-friction * 30.0 * subDt);
                             p.vx *= dampFactor;
                             p.vy *= dampFactor;
 
-                            // Update position (convert velocity in m/s to plate coordinates)
                             p.x += p.vx * subDt / PLATE_SIZE;
                             p.y += p.vy * subDt / PLATE_SIZE;
-
-                            // Keep z on plate surface
                             p.z = plateZ;
                         }
                     } else {
-                        // Particle is airborne - pure ballistic trajectory
+                        // Particle is airborne — pure ballistic trajectory
                         p.vz -= G * subDt;
                         p.z += p.vz * subDt;
-
-                        // Horizontal drift (from launch velocity, small)
                         p.x += p.vx * subDt / PLATE_SIZE;
                         p.y += p.vy * subDt / PLATE_SIZE;
 
                         // Check if particle has landed back on plate
                         if (p.z <= plateZ) {
                             p.z = plateZ;
-                            p.onPlate = true;
 
-                            // Bounce: reflect vertical velocity with energy loss
-                            const impactVz = p.vz - (A * omega * phiVal * Math.cos(omega * simTime));
+                            // Relative impact velocity (particle vs plate surface)
+                            const plateVz = A * omega * phiVal * Math.cos(omega * simTime);
+                            const impactVz = p.vz - plateVz;
                             const restitution = 1.0 - bounceLoss;
-                            if (Math.abs(impactVz) > 0.01) {
+
+                            if (Math.abs(impactVz) > 0.005) {
                                 // Bounce back up
-                                p.vz = -impactVz * restitution + (A * omega * phiVal * Math.cos(omega * simTime));
+                                p.vz = -impactVz * restitution + plateVz;
                                 p.onPlate = false;
+
+                                // KEY MECHANISM: Each bounce adds a random horizontal
+                                // kick. This is how sand migrates on a real Chladni
+                                // plate — chaotic bouncing at antinodes creates a
+                                // random walk. At nodal lines the plate doesn't move,
+                                // so particles stop bouncing and stay put.
+                                const kickStrength = Math.abs(impactVz) * 0.15;
+                                const angle = Math.random() * 2 * Math.PI;
+                                p.vx += Math.cos(angle) * kickStrength;
+                                p.vy += Math.sin(angle) * kickStrength;
                             } else {
-                                // Too slow, stick to plate
+                                // Too slow — stick to plate
                                 p.vz = 0;
                                 p.onPlate = true;
                             }
 
-                            // Horizontal velocity loses energy on impact
-                            p.vx *= (1.0 - bounceLoss * 0.5);
-                            p.vy *= (1.0 - bounceLoss * 0.5);
+                            // Dampen horizontal velocity on impact
+                            p.vx *= (1.0 - bounceLoss * 0.3);
+                            p.vy *= (1.0 - bounceLoss * 0.3);
                         }
                     }
 
