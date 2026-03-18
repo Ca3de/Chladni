@@ -478,19 +478,25 @@
                     const plateAccZ = -A * omega * omega * phiVal * sinOmegaT;
 
                     if (p.onPlate) {
-                        // Particle is resting on the plate surface.
-                        // It lifts off when the plate accelerates downward faster than
-                        // gravity, i.e. the plate "drops away" from the particle.
+                        // Particle rests on the plate surface.
+                        // It lifts off when plate accelerates down faster than gravity.
                         if (plateAccZ < -G) {
-                            // Launch: particle leaves surface with plate's current velocity
+                            // Launch: particle leaves with plate's current velocity
                             const plateVz = A * omega * phiVal * Math.cos(omega * simTime);
                             p.z = plateZ;
                             p.vz = plateVz;
                             p.onPlate = false;
                         } else {
-                            // Particle stays on plate.
-                            // Friction rapidly damps any horizontal velocity.
-                            const dampFactor = Math.exp(-friction * 30.0 * subDt);
+                            // On plate: apply time-averaged drift toward nodal lines.
+                            // Force = -phi * grad(phi) = -grad(phi^2/2)
+                            // This drives particles toward phi=0 (the nodal lines).
+                            const grad = phiGradient(p.x, p.y);
+                            const driftScale = 0.4 * A * omega;
+                            p.vx += -phiVal * grad.x * driftScale * subDt;
+                            p.vy += -phiVal * grad.y * driftScale * subDt;
+
+                            // Friction damps horizontal velocity
+                            const dampFactor = Math.exp(-friction * 40.0 * subDt);
                             p.vx *= dampFactor;
                             p.vy *= dampFactor;
 
@@ -499,13 +505,13 @@
                             p.z = plateZ;
                         }
                     } else {
-                        // Particle is airborne — pure ballistic trajectory
+                        // Airborne — ballistic trajectory under gravity
                         p.vz -= G * subDt;
                         p.z += p.vz * subDt;
                         p.x += p.vx * subDt / PLATE_SIZE;
                         p.y += p.vy * subDt / PLATE_SIZE;
 
-                        // Check if particle has landed back on plate
+                        // Landing check
                         if (p.z <= plateZ) {
                             p.z = plateZ;
 
@@ -515,21 +521,27 @@
                             const restitution = 1.0 - bounceLoss;
 
                             if (Math.abs(impactVz) > 0.005) {
-                                // Bounce back up
+                                // Bounce: reflect off the tilted plate surface.
                                 p.vz = -impactVz * restitution + plateVz;
                                 p.onPlate = false;
 
-                                // KEY MECHANISM: Each bounce adds a random horizontal
-                                // kick. This is how sand migrates on a real Chladni
-                                // plate — chaotic bouncing at antinodes creates a
-                                // random walk. At nodal lines the plate doesn't move,
-                                // so particles stop bouncing and stay put.
-                                const kickStrength = Math.abs(impactVz) * 0.15;
+                                // Slope-based kick: the plate surface is tilted, so
+                                // the bounce isn't straight up. The reflection off the
+                                // slope kicks the particle "downhill" — away from
+                                // antinodes and toward nodal lines.
+                                const grad = phiGradient(p.x, p.y);
+                                const slopeX = A * sinOmegaT * grad.x / PLATE_SIZE;
+                                const slopeY = A * sinOmegaT * grad.y / PLATE_SIZE;
+                                p.vx += 2.0 * impactVz * slopeX;
+                                p.vy += 2.0 * impactVz * slopeY;
+
+                                // Small random kick (chaotic collision noise)
+                                const noise = Math.abs(impactVz) * 0.03;
                                 const angle = Math.random() * 2 * Math.PI;
-                                p.vx += Math.cos(angle) * kickStrength;
-                                p.vy += Math.sin(angle) * kickStrength;
+                                p.vx += Math.cos(angle) * noise;
+                                p.vy += Math.sin(angle) * noise;
                             } else {
-                                // Too slow — stick to plate
+                                // Too slow to bounce — stick to plate
                                 p.vz = 0;
                                 p.onPlate = true;
                             }
